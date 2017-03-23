@@ -1,0 +1,167 @@
+package com.rxjava2.android.samples.sample;
+
+//========================================================================================
+//
+//  RXJAVA PRESENTATION - HOW TO USE RXJAVA - WHAT'S NEW IN RXJAVA 2 - LOOK AT THE LIBRARY
+//
+//========================================================================================
+
+interface UserManager {
+    User getUser();
+    void setName(String name); // <-- now async
+    void setAge(int age); // <-- now async
+}
+
+UserManager um = new UserManager();
+print um.getUser();
+
+um.setName("xxx", new UserManager.Listener() {
+    public void success() {
+        print um.getUser();
+
+        um.setAge(30, new UserManager.Listener() {
+            print um.getUser();
+        })
+    }
+})
+print um.getUser()
+
+
+public class UserActivity extends Activity {
+    private final UserManager um = new UserManager();
+
+    @Override
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.blahblahblah);
+        TextView tv  = (TextView) findViewById(R.id.user_name);
+        tv.setText(um.getUser().toString());
+        um.setName("xxx", new UserManager.Listener() {
+            public void success() {
+                runOnUiThread(new Runnable() {
+                    public void run() {
+                        if (isDestroyed()) {
+                            tv.setText(um.getUser().toString());
+                        }
+                    }
+                });
+            }
+
+            public void fail() {
+
+            }
+        });
+    }
+}
+
+===
+WHY REACTIVE ?
+===
+
+- App have to ready for any incoming things: User touch, Network Request, Database, Service, Broadcast...
+- App sit in the middle among too many things, but CANT BE CRASH OR BLOCK UI
+- Unless you can model your system synchronously, a single async can break imperative programming
+
+REACT THINKING:
+- Data come -> Process & Update UI
+
+===
+RXJAVA SOURCES -> OPERATORS ->
+===
+
+1. SOURCES
+  - Observable<T>
+  - Flowable<T>
+
+  interface Observer<T> {
+    void onNext(T t);
+    void onComplete();
+    void onError(Throwable t);
+    void onSubscribe(Disposable d);
+  }
+
+  interface Disposable {
+    void dispose();
+  }
+
+  //-----
+
+  interface Subscriber<T> {
+      void onNext(T t);
+      void onComplete();
+      void onError(Throwable t);
+      void onSubscribe(Subscription d);
+  }
+
+  interface Subscription {
+      void cancel();
+      void request(long r);
+  }
+
+
+  * Single<T>
+  * Completable<T>
+  * Maybe<T>
+
+2. CREATE SOURCES
+  Flowable.just("XXX");
+  Observable.just("XXX");
+  Maybe.just("XXX");
+  Single.just("XXX");
+
+  Flowable.fromArray({"xxx", "xx"})
+  Observable.fromIterable({"x", "x"})
+  Observable.fromCallable(new Callable<String>() {
+    public String call() {
+      return getName();
+    }
+  });
+  Observable.create(e -> {
+    e.onNext("XXX");
+    e.onComplete();
+  });
+
+  OkHttpClient client = // ...
+  Request request = // ...
+  Observable.create(e -> {
+    Call call = client.newCall(request);
+    call.enqueue(new Callback() {
+        public void onResponse(Response r) throws IOException {
+            e.onNext(r.body().string());
+            e.onComplete();
+        }
+        public void onFailure(IOException e) {
+            e.onError(e);
+        }
+    }
+  });
+
+3. OPERATORS
+
+    String greeting = "xxx";
+    String yelling = greeting.toUppercase();
+
+    Observable<String> greeting = Observable.just("xxx");
+    Observable<String> yelling = Observable.map(s -> s.toUppercase());
+
+    Observable<User> user = um.getUser();
+    Observable<user> mainThreadUser = user
+                            .subscribeOn(Schedulers.io())
+                            .map(user -> convert(user))
+                            .observeOn(AndroidSchedulers.mainThread());
+
+
+// =======================================
+
+DEMO & DISCOVER
+
+SimpleExample :-> Observable.just + ObserveOn + SubscribeOn
+    - Explain data flow in observe pattern
+TakeExample :
+MapExample:
+...
+
+Real case:
+- Login, Register
+- Course
+- Get List Data
